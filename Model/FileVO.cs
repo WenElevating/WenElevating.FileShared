@@ -21,5 +21,13 @@ namespace WenElevating.FileShared.Model
 
         [ObservableProperty]
         private long _size;
+
+        public void Update(string name = "", string path = "", Icon? icon = null, long size = 0)
+        {
+            Name = name;
+            Path = path;
+            Icon = icon;
+            Size = size;
+        }
     }
 }

@@ -21,11 +21,17 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Service\" />
+    <EditorConfigFiles Remove="C:\Users\W2830\source\repos\WenElevating.FileShared\.editorconfig" />
   </ItemGroup>
 
   <ItemGroup>
-    <EditorConfigFiles Remove="C:\Users\W2830\source\repos\WenElevating.FileShared\.editorconfig" />
+    <None Remove="Resources\Png\root.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Resources\Png\root.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Resource>
   </ItemGroup>
 
   <ItemGroup>

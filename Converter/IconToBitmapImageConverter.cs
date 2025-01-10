@@ -17,14 +17,19 @@ namespace WenElevating.FileShared.Converter
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             Icon icon = (Icon)value;
-            Bitmap bitmap = icon.ToBitmap();
-            MemoryStream memoryStream = new MemoryStream();
+            Bitmap bitmap;
+
+            bitmap = icon.ToBitmap();
+
+            MemoryStream memoryStream = new();
             bitmap.Save(memoryStream, ImageFormat.Png);
-            BitmapImage image = new BitmapImage();
+
+            BitmapImage image = new();
             image.BeginInit();
             image.StreamSource = memoryStream;
             image.EndInit();
             image.Freeze();
+            
             return image;
         }
 

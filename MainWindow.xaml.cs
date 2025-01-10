@@ -2,17 +2,10 @@
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
-using System.Text;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Interop;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
+using WenElevating.FileShared.Common.Extension;
+using WenElevating.FileShared.Common.Tips;
 using WenElevating.FileShared.Model;
 
 namespace WenElevating.FileShared
@@ -22,7 +15,7 @@ namespace WenElevating.FileShared
     /// </summary>
     public partial class MainWindow : Window
     {
-        public ObservableCollection<FileVO> FileList
+        public ObservableCollection<FileTreeModel> FileList
         {
             get; 
             set;
@@ -33,24 +26,37 @@ namespace WenElevating.FileShared
         {
             InitializeComponent();
             DataContext = this;
-            FileList = [];
+            FileList = [
+                new FileTreeModel(
+                    new FileVO() {
+                        Icon = SystemIcons.WinLogo,
+                        Path = "\\",
+                        Name = "\\",
+                        Size = 0
+            }),];
         }
 
-        private void Window_Drop(object sender, DragEventArgs e)
+        private async void Window_Drop(object sender, DragEventArgs e)
         {
             try
             {
-                string? msg = string.Empty;
+                // 获取拖入的消息
+                string dragMesssage = string.Empty;
                 if (e.Data.GetDataPresent(DataFormats.FileDrop))
                 {
-                    msg = ((Array)e.Data?.GetData(DataFormats.FileDrop))?.GetValue(0)?.ToString();
+                    dragMesssage = ((Array?)e.Data?.GetData(DataFormats.FileDrop))?.GetValue(0)?.ToString() ?? string.Empty;
                 }
 
                 // 检查文件是否存在
-                CheckFilePathExist(msg);
+                if (dragMesssage != null && !CheckDragFilePathExists(dragMesssage))
+                {
+                    return;
+                }
 
                 // 获取文件图标并显示在列表中
-                ShowFileOnList(msg);
+                await UpdateFileTreeAsync(dragMesssage, FileList.First()).ConfigureAwait(false);
+
+                e.Handled = true;
             }
             catch (Exception ex)
             {
@@ -59,69 +65,151 @@ namespace WenElevating.FileShared
 
         }
 
-        private void ShowFileOnList(string? path)
+        /// <summary>
+        /// 文件拖拽上传
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private async void TreeViewItem_Drop(object sender, DragEventArgs e)
         {
-            if (string.IsNullOrEmpty(path))
+            try
+            {
+                // 上传文件
+                await UploadFileAsync(sender, e);
+                
+                // 阻止向下传播
+                HandledEvent(e);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine(ex);
+            }
+        }
+
+        private async Task UploadFileAsync(object sender, DragEventArgs e)
+        {
+            // 获取拖拽消息
+            string message = GetDragMessage(e);
+            
+            // 检查上传文件
+            if (!CheckDragFilePathExists(message))
+            {
+                return;
+            }
+
+            // 获取拖拽进的树
+            if (!TryGetTreeModel(sender, out FileTreeModel treeModel))
+            {
+                return;
+            }
+
+            // 更新到文件树
+            await UpdateFileTreeAsync(message, treeModel).ConfigureAwait(false);
+        }
+
+        private async Task UpdateFileTreeAsync(string? filePath, FileTreeModel selectecdTree)
+        {
+            if (string.IsNullOrEmpty(filePath) || selectecdTree == null)
             {
                 return;
             }
 
             try
             {
-                FileVO? fileVO = FileList.FirstOrDefault((item) => item.Path == path);
-
-                if (fileVO != null && MessageBox.Show("文件已存在，是否覆盖？", "提示", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+                // 检查文件树
+                FileVO? fileModel = await TryGetFileVOAsync(filePath, FileList);
+                if (fileModel is not null && !MessageBoxExtension.Query(CommonMessageTips.TipMessage, UploadFileMessageTips.FileOverwriteMessage))
                 {
                     return;
                 }
 
-                // 获取文件图标，若无图标则设置默认图标
-                Icon icon = System.Drawing.Icon.ExtractAssociatedIcon(path) ?? SystemIcons.Application;
-                FileInfo fileInfo = new(path);
-
-                if (fileVO != null)
-                {
-                    fileVO.Path = path;
-                    fileVO.Icon = icon;
-                    fileVO.Size = fileVO.Size;
-                    fileVO.Name = fileInfo.Name;
-                    return;
-                }
+                // 更新或创建文件
+                UpdateOrCreateFileModel(filePath, ref fileModel);
                 
-                // 检查是否存在，若不存在则构造VO对象并添加到集合中，若存在则询问是否覆盖
-                fileVO = new FileVO()
+                // 更新到被选中树的子列表
+                selectecdTree.AddChild(new FileTreeModel(fileModel));
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine(ex);
+            }
+        }
+
+        private static FileVO UpdateOrCreateFileModel(string path, ref FileVO? model)
+        {
+            Icon icon = GetFileIcon(path);
+            FileInfo fileInfo = new(path);
+
+            if (model != null)
+            {
+                model.Update(fileInfo.Name, path, icon, fileInfo.Length);
+            }
+            else
+            {
+                model = new FileVO
                 {
                     Path = path,
                     Icon = icon,
                     Size = fileInfo.Length,
                     Name = fileInfo.Name,
                 };
-                FileList.Add(fileVO);
             }
-            catch (Exception ex) 
+
+            return model;
+        }
+
+        private static async Task<FileVO?> TryGetFileVOAsync(string path, IEnumerable<FileTreeModel> fileTrees)
+        {
+            try
+            {
+                return await fileTrees.First().GetChildrenByKeyAsync(path);
+            }
+            catch (Exception ex)
             {
                 Debug.WriteLine(ex);
+                return null;
             }
         }
 
-        private bool CheckFilePathExist(string? path)
+        private static Icon GetFileIcon(string filePath)
+        {
+            return System.Drawing.Icon.ExtractAssociatedIcon(filePath) ?? SystemIcons.Application;
+        }
+
+        private static bool CheckDragFilePathExists(string? path)
         {
             // 排除非文件
-            if (string.IsNullOrEmpty(path) || !File.Exists(path))
-            {   
-                throw new ArgumentNullException(nameof(path));
+            if (path == null || string.IsNullOrEmpty(path) || !File.Exists(path))
+            {
+                MessageBox.Show("上传的内容不是文件或不存在！");
+                return false;
             }
             return true;
         }
 
-        private void Window_DragEnter(object sender, DragEventArgs e)
+        private static bool TryGetTreeModel(object sender, out FileTreeModel model)
         {
-            Debug.WriteLine("进入了..");
+            var item = sender as TreeViewItem;
+            if (item?.DataContext is not FileTreeModel treeModel)
+            {
+                throw new Exception("DataContext isn't fileTreeModel");
+            }
+            model = treeModel;
+            return true;
         }
 
-        private void Window_DragLeave(object sender, DragEventArgs e)
+        private static string GetDragMessage(DragEventArgs e)
         {
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                return ((Array?)e.Data?.GetData(DataFormats.FileDrop))?.GetValue(0)?.ToString() ?? string.Empty;
+            }
+            return string.Empty;
+        }
 
+        private static void HandledEvent(RoutedEventArgs eventArgs)
+        {
+            eventArgs.Handled = true;
         }
     }
 }

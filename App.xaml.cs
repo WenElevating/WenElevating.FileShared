@@ -3,6 +3,7 @@ using System.Data;
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 
+[assembly: log4net.Config.XmlConfigurator(ConfigFile = "log4net.config",ConfigFileExtension = "config", Watch = true)]
 namespace WenElevating.FileShared
 {
     /// <summary>

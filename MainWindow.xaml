@@ -6,13 +6,12 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="clr-namespace:WenElevating.FileShared"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:md="clr-namespace:WenElevating.FileShared.Model"
     Title="FileShared"
     Width="800"
     Height="450"
     d:DataContext="{d:DesignInstance Type=local:MainWindow}"
     AllowDrop="True"
-    DragEnter="Window_DragEnter"
-    DragLeave="Window_DragLeave"
     Drop="Window_Drop"
     mc:Ignorable="d">
     <Window.Resources>
@@ -58,7 +57,7 @@
             Stroke="Black"
             StrokeDashArray="5 5"
             Visibility="Collapsed" />
-        <ListBox ItemsSource="{Binding FileList}">
+        <ListBox ItemsSource="{Binding FileList}" Visibility="Collapsed">
             <ListBox.ItemTemplate>
                 <DataTemplate>
                     <StackPanel Orientation="Horizontal">
@@ -75,5 +74,47 @@
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>
+
+        <TreeView
+            ItemsSource="{Binding FileList}"
+            ToolTip="Drag your files here"
+            VirtualizingPanel.CacheLength="100"
+            VirtualizingPanel.IsVirtualizing="True">
+            <TreeView.ItemContainerStyle>
+                <Style TargetType="{x:Type TreeViewItem}">
+                    <Setter Property="IsExpanded" Value="True" />
+                    <Setter Property="AllowDrop" Value="True" />
+                    <EventSetter Event="Drop" Handler="TreeViewItem_Drop" />
+                </Style>
+            </TreeView.ItemContainerStyle>
+            <TreeView.ItemTemplate>
+                <HierarchicalDataTemplate DataType="{x:Type md:FileTreeModel}" ItemsSource="{Binding Children}">
+                    <StackPanel
+                        x:Name="TreeItemPanel"
+                        MinHeight="20"
+                        Margin="0,3,0,3"
+                        Background="Transparent"
+                        Orientation="Horizontal">
+                        <Image
+                            Width="30"
+                            Height="15"
+                            VerticalAlignment="Center"
+                            Source="{Binding Data.Icon, Converter={StaticResource iconToBitmapImageConverter}}" />
+                        <TextBlock
+                            Margin="10,0,10,0"
+                            VerticalAlignment="Center"
+                            Text="{Binding Data.Name}" />
+                    </StackPanel>
+                    <HierarchicalDataTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="TreeItemPanel" Property="Background" Value="#F5F7FA" />
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="False">
+                            <Setter TargetName="TreeItemPanel" Property="Background" Value="Transparent" />
+                        </Trigger>
+                    </HierarchicalDataTemplate.Triggers>
+                </HierarchicalDataTemplate>
+            </TreeView.ItemTemplate>
+        </TreeView>
     </Grid>
 </Window>
